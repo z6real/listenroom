@@ -656,7 +656,7 @@ const WS_URL = (() => {
   const host = window.location.hostname;
   // If opened from GitHub Pages or any other static host, use the env var or fallback
   // Set this to your Render WebSocket URL, e.g.: wss://listenroom.onrender.com
-  const BACKEND = "REPLACE_WITH_YOUR_RENDER_WS_URL"; // ← change this after deploy
+  const BACKEND = "https://listenroom.onrender.com"; // ← change this after deploy
   if (BACKEND !== "REPLACE_WITH_YOUR_RENDER_WS_URL") return BACKEND;
   // If running locally (served by the Node server itself)
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
