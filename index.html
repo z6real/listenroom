@@ -539,10 +539,11 @@
     </div>
 
     <div class="warning-box">
-      <strong>🎵 Browser tip:</strong> Use <strong>Chrome</strong> or <strong>Edge</strong> for the best experience.
-      When sharing audio, select <em>"Share system audio"</em> or pick a specific app tab.
-      On Windows, system audio capture works natively. On Mac, you may need
-      <strong>BlackHole</strong> or <strong>Loopback</strong> as a virtual audio device.
+      <strong>🎵 How to get audio working:</strong><br/><br/>
+      A screen picker dialog will appear (required by browsers even for audio-only).<br/><br/>
+      <strong>Chrome / Edge / Brave:</strong> At the bottom of the dialog, enable the <em>&quot;Share system audio&quot;</em> checkbox before clicking Share. Without it, no audio is captured.<br/><br/>
+      <strong>For a specific app:</strong> Sharing a browser tab works most reliably. For other apps, use system audio.<br/><br/>
+      <strong>Mac:</strong> Needs <strong>BlackHole</strong> (free virtual driver). <strong>Windows:</strong> Works natively.
     </div>
   </div>
 
@@ -655,7 +656,7 @@ const WS_URL = (() => {
   const host = window.location.hostname;
   // If opened from GitHub Pages or any other static host, use the env var or fallback
   // Set this to your Render WebSocket URL, e.g.: wss://listenroom.onrender.com
-  const BACKEND = "https://listenroom.onrender.com"; // ← change this after deploy
+  const BACKEND = "REPLACE_WITH_YOUR_RENDER_WS_URL"; // ← change this after deploy
   if (BACKEND !== "REPLACE_WITH_YOUR_RENDER_WS_URL") return BACKEND;
   // If running locally (served by the Node server itself)
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
@@ -792,18 +793,24 @@ function handleMessage(msg) {
 // ─── HOST: STREAMING ─────────────────────────────────────────────────────────
 async function startStream() {
   try {
+    // video: true is REQUIRED — browsers won't show the "Share audio" checkbox
+    // without a video track being requested. We stop the video track immediately after.
     const stream = await navigator.mediaDevices.getDisplayMedia({
-      video: false,
+      video: true,
       audio: {
         echoCancellation: false,
         noiseSuppression: false,
+        autoGainControl: false,
         sampleRate: 44100,
         channelCount: 2,
       },
     });
 
+    // Drop video immediately — we only want audio
+    stream.getVideoTracks().forEach(t => t.stop());
+
     if (!stream.getAudioTracks().length) {
-      showToast("No audio track found. Make sure to check 'Share audio'.");
+      showToast("⚠ No audio captured. In the sharing dialog, make sure to check 'Share system audio' / 'Share tab audio'.");
       stream.getTracks().forEach(t => t.stop());
       return;
     }
