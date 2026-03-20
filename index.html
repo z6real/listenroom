@@ -652,6 +652,9 @@ window.electron.onWsMessage((raw) => {
       toast("Host closed the room.");
       resetLobby();
       break;
+    case "status":
+      toast(msg.text);
+      break;
     case "error":
       toast("⚠ " + msg.message);
       break;
@@ -786,7 +789,6 @@ async function startStream() {
   }
 }
 
-}
 
 function stopStream(notify = true) {
   if (processorNode) { processorNode.disconnect(); processorNode = null; }
@@ -914,15 +916,21 @@ $("btn-min").addEventListener("click", () => window.electron.minimize());
 $("btn-close").addEventListener("click", () => window.electron.close());
 
 $("btn-create").addEventListener("click", async () => {
+  $("btn-create").disabled = true;
+  $("btn-create").textContent = "Connecting...";
   try { await connect(); send({ type: "create" }); }
-  catch {}
+  catch(e) { toast("⚠ " + e.message); }
+  finally { $("btn-create").disabled = false; $("btn-create").innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg> Create Room'; }
 });
 
 $("btn-join").addEventListener("click", async () => {
   const code = $("join-input").value.trim().toUpperCase();
   if (code.length !== 6) { toast("Enter the 6-character code."); return; }
+  $("btn-join").disabled = true;
+  $("btn-join").textContent = "Connecting...";
   try { await connect(); send({ type: "join", code }); }
-  catch {}
+  catch(e) { toast("⚠ " + e.message); }
+  finally { $("btn-join").disabled = false; $("btn-join").innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg> Join Room'; }
 });
 
 $("join-input").addEventListener("keydown", e => { if (e.key === "Enter") $("btn-join").click(); });
