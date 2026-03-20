@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ListenRoom — Listen Together</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface2: #18181f;
+    --border: #252530;
+    --accent: #7c6cfc;
+    --accent2: #c084fc;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #f0eeff;
+    --muted: #6b6880;
+    --font-display: 'Syne', sans-serif;
+    --font-mono: 'DM Mono', monospace;
+    --radius: 14px;
+    --glow: 0 0 40px rgba(124,108,252,0.18);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-display);
+    min-height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-x: hidden;
+  }
+
+  /* Ambient background */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background:
+      radial-gradient(ellipse 60% 40% at 20% 10%, rgba(124,108,252,0.12) 0%, transparent 70%),
+      radial-gradient(ellipse 40% 50% at 80% 90%, rgba(192,132,252,0.08) 0%, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .noise {
+    position: fixed;
+    inset: 0;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-repeat: repeat;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  main {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    max-width: 520px;
+    padding: 2rem 1.25rem 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* Header */
+  header {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding-top: 2.5rem;
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .logo-icon {
+    width: 42px;
+    height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--glow);
+  }
+
+  .logo-icon svg { width: 22px; height: 22px; }
+
+  h1 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    background: linear-gradient(135deg, var(--text) 30%, var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .tagline {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    color: var(--muted);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* Cards */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+    transition: border-color 0.2s;
+  }
+
+  .card:hover { border-color: #35354a; }
+
+  .card-title {
+    font-size: 0.7rem;
+    font-family: var(--font-mono);
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .card-title::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--accent);
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  /* Buttons */
+  .btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border: none;
+    border-radius: 10px;
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 0.92rem;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    letter-spacing: 0.01em;
+    padding: 0.75rem 1.5rem;
+    width: 100%;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .btn::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: white;
+    opacity: 0;
+    transition: opacity 0.15s;
+  }
+
+  .btn:hover::after { opacity: 0.05; }
+  .btn:active { transform: scale(0.98); }
+
+  .btn-primary {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: white;
+    box-shadow: 0 4px 20px rgba(124,108,252,0.35);
+  }
+
+  .btn-primary:hover { box-shadow: 0 6px 28px rgba(124,108,252,0.5); }
+
+  .btn-outline {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-outline:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-danger {
+    background: rgba(248,113,113,0.12);
+    color: var(--red);
+    border: 1px solid rgba(248,113,113,0.2);
+  }
+
+  .btn-danger:hover { background: rgba(248,113,113,0.2); }
+
+  .btn-green {
+    background: rgba(74,222,128,0.12);
+    color: var(--green);
+    border: 1px solid rgba(74,222,128,0.2);
+  }
+
+  .btn-green:hover { background: rgba(74,222,128,0.2); }
+
+  .btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  /* Input */
+  .input-wrap { position: relative; }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    color: var(--text);
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    text-align: center;
+  }
+
+  input[type="text"]::placeholder {
+    color: var(--muted);
+    letter-spacing: 0.1em;
+    text-transform: none;
+    font-size: 0.85rem;
+  }
+
+  input[type="text"]:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(124,108,252,0.15);
+  }
+
+  /* Room code display */
+  .code-display {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  .code-label {
+    font-family: var(--font-mono);
+    font-size: 0.68rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+  }
+
+  .code-value {
+    font-family: var(--font-mono);
+    font-size: 2.2rem;
+    font-weight: 500;
+    letter-spacing: 0.25em;
+    color: var(--text);
+    cursor: pointer;
+    transition: color 0.2s;
+    user-select: all;
+  }
+
+  .code-value:hover { color: var(--accent2); }
+
+  .code-hint {
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    letter-spacing: 0.05em;
+  }
+
+  /* Status bar */
+  .status-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    background: var(--surface2);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .status-dot {
+    width: 7px; height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    transition: background 0.3s;
+  }
+
+  .status-dot.idle { background: var(--muted); }
+  .status-dot.connecting { background: var(--yellow); animation: pulse 1s infinite; }
+  .status-dot.live { background: var(--green); animation: pulse 2s infinite; }
+  .status-dot.error { background: var(--red); }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; box-shadow: none; }
+    50% { opacity: 0.5; box-shadow: 0 0 8px currentColor; }
+  }
+
+  /* Waveform visualizer */
+  .viz-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  #waveform {
+    width: 100%;
+    height: 64px;
+    border-radius: 8px;
+    background: var(--surface2);
+    display: block;
+  }
+
+  /* Listener count */
+  .listener-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.75rem;
+    background: rgba(124,108,252,0.1);
+    border: 1px solid rgba(124,108,252,0.2);
+    border-radius: 999px;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--accent2);
+  }
+
+  /* Controls row */
+  .controls-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  /* Page sections */
+  .page { display: flex; flex-direction: column; gap: 1.5rem; }
+  .page.hidden { display: none !important; }
+
+  /* Toast */
+  #toast {
+    position: fixed;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%) translateY(120%);
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0.75rem 1.25rem;
+    font-family: var(--font-mono);
+    font-size: 0.75rem;
+    color: var(--text);
+    z-index: 100;
+    transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
+    pointer-events: none;
+    white-space: nowrap;
+  }
+
+  #toast.show { transform: translateX(-50%) translateY(0); }
+
+  /* Guest audio indicator */
+  .audio-indicator {
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    gap: 3px;
+    height: 36px;
+  }
+
+  .audio-indicator span {
+    display: block;
+    width: 4px;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: bounce 1.2s ease infinite;
+    opacity: 0;
+    transition: opacity 0.3s;
+  }
+
+  .audio-indicator span:nth-child(1) { height: 12px; animation-delay: 0s; }
+  .audio-indicator span:nth-child(2) { height: 24px; animation-delay: 0.15s; }
+  .audio-indicator span:nth-child(3) { height: 36px; animation-delay: 0.3s; }
+  .audio-indicator span:nth-child(4) { height: 20px; animation-delay: 0.45s; }
+  .audio-indicator span:nth-child(5) { height: 14px; animation-delay: 0.6s; }
+
+  .audio-indicator.playing span { opacity: 1; }
+
+  @keyframes bounce {
+    0%, 100% { transform: scaleY(0.4); }
+    50% { transform: scaleY(1); }
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    color: var(--muted);
+    font-family: var(--font-mono);
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+  }
+
+  .divider::before, .divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* Browser support warning */
+  .warning-box {
+    background: rgba(251,191,36,0.07);
+    border: 1px solid rgba(251,191,36,0.2);
+    border-radius: 10px;
+    padding: 0.9rem 1rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: rgba(251,191,36,0.9);
+    line-height: 1.6;
+  }
+
+  .warning-box strong { font-weight: 500; }
+
+  .footer-note {
+    text-align: center;
+    font-family: var(--font-mono);
+    font-size: 0.65rem;
+    color: var(--muted);
+    line-height: 1.7;
+  }
+
+  /* Vol slider */
+  input[type="range"] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 4px;
+    background: var(--border);
+    border-radius: 2px;
+    outline: none;
+    cursor: pointer;
+  }
+
+  input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    box-shadow: 0 0 8px rgba(124,108,252,0.5);
+    transition: box-shadow 0.2s;
+  }
+
+  input[type="range"]:hover::-webkit-slider-thumb {
+    box-shadow: 0 0 14px rgba(124,108,252,0.7);
+  }
+
+  .vol-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-family: var(--font-mono);
+    font-size: 0.72rem;
+    color: var(--muted);
+  }
+
+  .vol-row svg { flex-shrink: 0; }
+</style>
+</head>
+<body>
+<div class="noise"></div>
+
+<main>
+  <header>
+    <div class="logo-mark">
+      <div class="logo-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M9 18V5l12-2v13"/>
+          <circle cx="6" cy="18" r="3"/>
+          <circle cx="18" cy="16" r="3"/>
+        </svg>
+      </div>
+      <h1>ListenRoom</h1>
+    </div>
+    <p class="tagline">Real-time audio sharing &mdash; no accounts, no limits</p>
+  </header>
+
+  <!-- ── LOBBY ── -->
+  <div class="page" id="page-lobby">
+    <div class="card">
+      <div class="card-title">Start a Room</div>
+      <p style="font-size:0.83rem;color:var(--muted);font-family:var(--font-mono);line-height:1.6;">
+        Create a room, share the code with a friend, then stream any audio from your computer to them live.
+      </p>
+      <button class="btn btn-primary" id="btn-create">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Create a Room
+      </button>
+    </div>
+
+    <div class="divider">or join one</div>
+
+    <div class="card">
+      <div class="card-title">Join a Room</div>
+      <div class="input-wrap">
+        <input type="text" id="join-code" maxlength="6" placeholder="Enter 6-character code" autocomplete="off" spellcheck="false" />
+      </div>
+      <button class="btn btn-outline" id="btn-join">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+        Join Room
+      </button>
+    </div>
+
+    <div class="warning-box">
+      <strong>🎵 Browser tip:</strong> Use <strong>Chrome</strong> or <strong>Edge</strong> for the best experience.
+      When sharing audio, select <em>"Share system audio"</em> or pick a specific app tab.
+      On Windows, system audio capture works natively. On Mac, you may need
+      <strong>BlackHole</strong> or <strong>Loopback</strong> as a virtual audio device.
+    </div>
+  </div>
+
+  <!-- ── HOST ROOM ── -->
+  <div class="page hidden" id="page-host">
+    <div class="card">
+      <div class="card-title">Your Room Code</div>
+      <div class="code-display">
+        <div class="code-label">Share this with your friend</div>
+        <div class="code-value" id="host-code" title="Click to copy">——————</div>
+        <div class="code-hint">Click to copy &bull; Code expires when you close the room</div>
+      </div>
+      <div class="listener-pill" id="host-listener-count">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor"><circle cx="12" cy="8" r="4"/><path d="M20 20c0-4.4-3.6-8-8-8s-8 3.6-8 8"/></svg>
+        <span id="guest-count-text">0 listeners</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Audio Source</div>
+
+      <div id="host-idle-section">
+        <p style="font-size:0.8rem;color:var(--muted);font-family:var(--font-mono);line-height:1.6;margin-bottom:1rem;">
+          Click the button below. Your browser will ask you to select what to share — pick an application tab, window audio, or your entire system sound.
+        </p>
+        <button class="btn btn-primary" id="btn-start-stream">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+          Start Streaming Audio
+        </button>
+      </div>
+
+      <div id="host-streaming-section" style="display:none;flex-direction:column;gap:1rem;">
+        <div class="status-bar">
+          <span class="status-dot live" id="stream-status-dot"></span>
+          <span id="stream-status-text">Streaming live</span>
+        </div>
+
+        <div class="viz-wrap">
+          <canvas id="waveform"></canvas>
+        </div>
+
+        <div class="controls-row">
+          <button class="btn btn-outline" id="btn-pause-stream">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+            Pause
+          </button>
+          <button class="btn btn-danger" id="btn-stop-stream">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16"/></svg>
+            Stop
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <button class="btn btn-danger" id="btn-close-room" style="margin-top:0.5rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      Close Room
+    </button>
+  </div>
+
+  <!-- ── GUEST ROOM ── -->
+  <div class="page hidden" id="page-guest">
+    <div class="card">
+      <div class="card-title">Connected to Room</div>
+      <div class="code-display">
+        <div class="code-label">Room code</div>
+        <div class="code-value" id="guest-code">——————</div>
+      </div>
+      <div class="status-bar">
+        <span class="status-dot connecting" id="guest-status-dot"></span>
+        <span id="guest-status-text">Waiting for host to stream…</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Incoming Audio</div>
+      <div class="audio-indicator" id="audio-indicator">
+        <span></span><span></span><span></span><span></span><span></span>
+      </div>
+      <div class="vol-row">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+        <input type="range" id="guest-volume" min="0" max="1" step="0.02" value="1" />
+        <span id="vol-label" style="min-width:2.5rem;text-align:right;">100%</span>
+      </div>
+      <div style="font-size:0.72rem;color:var(--muted);font-family:var(--font-mono);text-align:center;line-height:1.6;margin-top:0.25rem;">
+        Audio plays automatically when the host starts streaming.
+        <br />If you hear nothing, make sure your system volume is on.
+      </div>
+    </div>
+
+    <button class="btn btn-danger" id="btn-leave-room" style="margin-top:0.5rem;">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      Leave Room
+    </button>
+  </div>
+
+  <p class="footer-note">
+    Open source · No account needed · No data stored<br/>
+    Audio streams directly between your browser and your friend's.
+  </p>
+</main>
+
+<div id="toast"></div>
+<audio id="guest-audio" autoplay></audio>
+
+<script>
+// ─── CONFIG ─────────────────────────────────────────────────────────────────
+// Replace this with your actual Render backend URL after deploying
+const WS_URL = (() => {
+  const host = window.location.hostname;
+  // If opened from GitHub Pages or any other static host, use the env var or fallback
+  // Set this to your Render WebSocket URL, e.g.: wss://listenroom.onrender.com
+  const BACKEND = "REPLACE_WITH_YOUR_RENDER_WS_URL"; // ← change this after deploy
+  if (BACKEND !== "REPLACE_WITH_YOUR_RENDER_WS_URL") return BACKEND;
+  // If running locally (served by the Node server itself)
+  const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${proto}//${window.location.host}`;
+})();
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let ws = null;
+let role = null; // 'host' | 'guest'
+let roomCode = null;
+let mediaStream = null;
+let audioCtx = null;
+let analyser = null;
+let sourceNode = null;
+let processorNode = null;
+let animId = null;
+let isPaused = false;
+let guestAudioCtx = null;
+let guestGain = null;
+let guestQueue = [];
+let guestPlaying = false;
+let guestStartTime = 0;
+let wsConnecting = false;
+
+// ─── UTILITIES ───────────────────────────────────────────────────────────────
+function showToast(msg, duration = 3000) {
+  const t = document.getElementById("toast");
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(t._tid);
+  t._tid = setTimeout(() => t.classList.remove("show"), duration);
+}
+
+function showPage(id) {
+  ["page-lobby", "page-host", "page-guest"].forEach(p => {
+    document.getElementById(p).classList.toggle("hidden", p !== id);
+  });
+}
+
+function updateGuestCount(n) {
+  document.getElementById("guest-count-text").textContent = `${n} listener${n !== 1 ? "s" : ""}`;
+}
+
+// ─── WEBSOCKET ───────────────────────────────────────────────────────────────
+function connectWS(onOpen) {
+  if (ws && ws.readyState <= 1) { onOpen && onOpen(); return; }
+  ws = new WebSocket(WS_URL);
+  ws.binaryType = "arraybuffer";
+
+  ws.onopen = () => { wsConnecting = false; onOpen && onOpen(); };
+
+  ws.onmessage = (ev) => {
+    if (ev.data instanceof ArrayBuffer) {
+      // Audio chunk for guest
+      handleGuestAudioChunk(ev.data);
+      return;
+    }
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    handleMessage(msg);
+  };
+
+  ws.onclose = () => {
+    if (role === "guest") {
+      setGuestStatus("disconnected", "error");
+      showToast("Disconnected from server. Refresh to reconnect.");
+    }
+    ws = null;
+  };
+
+  ws.onerror = () => {
+    showToast("Connection error. Is the server running?");
+    wsConnecting = false;
+  };
+}
+
+function send(obj) {
+  if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(obj));
+}
+
+function handleMessage(msg) {
+  switch (msg.type) {
+    case "created":
+      roomCode = msg.code;
+      role = "host";
+      document.getElementById("host-code").textContent = msg.code;
+      showPage("page-host");
+      showToast(`Room ${msg.code} created! Share the code.`);
+      break;
+
+    case "joined":
+      roomCode = msg.code;
+      role = "guest";
+      document.getElementById("guest-code").textContent = msg.code;
+      showPage("page-guest");
+      showToast("Joined room! Waiting for host to stream…");
+      if (!msg.paused) setGuestStatus("Waiting for host to stream…", "connecting");
+      break;
+
+    case "guest_joined":
+      updateGuestCount(msg.count);
+      showToast(`🎧 Friend joined! ${msg.count} listener${msg.count !== 1 ? "s" : ""}.`);
+      break;
+
+    case "guest_left":
+      updateGuestCount(msg.count);
+      break;
+
+    case "pause":
+      if (role === "guest") {
+        setGuestStatus("Host paused", "connecting");
+        document.getElementById("audio-indicator").classList.remove("playing");
+      }
+      break;
+
+    case "resume":
+      if (role === "guest") {
+        setGuestStatus("Receiving audio…", "live");
+        document.getElementById("audio-indicator").classList.add("playing");
+      }
+      break;
+
+    case "host_left":
+      showToast("Host closed the room.");
+      resetToLobby();
+      break;
+
+    case "error":
+      showToast("⚠ " + msg.message);
+      break;
+  }
+}
+
+// ─── HOST: STREAMING ─────────────────────────────────────────────────────────
+async function startStream() {
+  try {
+    const stream = await navigator.mediaDevices.getDisplayMedia({
+      video: false,
+      audio: {
+        echoCancellation: false,
+        noiseSuppression: false,
+        sampleRate: 44100,
+        channelCount: 2,
+      },
+    });
+
+    if (!stream.getAudioTracks().length) {
+      showToast("No audio track found. Make sure to check 'Share audio'.");
+      stream.getTracks().forEach(t => t.stop());
+      return;
+    }
+
+    mediaStream = stream;
+    audioCtx = new AudioContext({ sampleRate: 44100 });
+    analyser = audioCtx.createAnalyser();
+    analyser.fftSize = 256;
+    sourceNode = audioCtx.createMediaStreamSource(stream);
+    sourceNode.connect(analyser);
+
+    // ScriptProcessor for sending audio
+    processorNode = audioCtx.createScriptProcessor(4096, 2, 2);
+    sourceNode.connect(processorNode);
+    processorNode.connect(audioCtx.destination);
+
+    processorNode.onaudioprocess = (e) => {
+      if (isPaused) return;
+      if (!ws || ws.readyState !== WebSocket.OPEN) return;
+
+      const L = e.inputBuffer.getChannelData(0);
+      const R = e.inputBuffer.getChannelData(1) || L;
+      const buf = new Float32Array(L.length * 2);
+      for (let i = 0; i < L.length; i++) { buf[i * 2] = L[i]; buf[i * 2 + 1] = R[i]; }
+      ws.send(buf.buffer);
+    };
+
+    // Show streaming UI
+    document.getElementById("host-idle-section").style.display = "none";
+    document.getElementById("host-streaming-section").style.display = "flex";
+    drawWaveform();
+
+    // Handle stream ending (user stopped sharing)
+    stream.getAudioTracks()[0].onended = () => stopStream(false);
+
+    showToast("🎵 Streaming started!");
+    send({ type: "resume", ts: Date.now() });
+
+  } catch (err) {
+    if (err.name === "NotAllowedError") showToast("Permission denied. Please allow screen sharing.");
+    else if (err.name === "NotSupportedError") showToast("Audio capture not supported. Use Chrome or Edge.");
+    else showToast("Could not start audio: " + err.message);
+    console.error(err);
+  }
+}
+
+function stopStream(notify = true) {
+  if (processorNode) { processorNode.disconnect(); processorNode = null; }
+  if (sourceNode) { sourceNode.disconnect(); sourceNode = null; }
+  if (audioCtx) { audioCtx.close(); audioCtx = null; }
+  if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+  cancelAnimationFrame(animId);
+  isPaused = false;
+
+  document.getElementById("host-idle-section").style.display = "";
+  document.getElementById("host-streaming-section").style.display = "none";
+  document.getElementById("btn-pause-stream").innerHTML = `
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+
+  if (notify) showToast("Stream stopped.");
+}
+
+function togglePause() {
+  isPaused = !isPaused;
+  const btn = document.getElementById("btn-pause-stream");
+  const dot = document.getElementById("stream-status-dot");
+  const statusText = document.getElementById("stream-status-text");
+
+  if (isPaused) {
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"/></svg> Resume`;
+    dot.className = "status-dot connecting";
+    statusText.textContent = "Paused";
+    send({ type: "pause", ts: Date.now() });
+  } else {
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg> Pause`;
+    dot.className = "status-dot live";
+    statusText.textContent = "Streaming live";
+    send({ type: "resume", ts: Date.now() });
+  }
+}
+
+// ─── HOST: WAVEFORM ──────────────────────────────────────────────────────────
+function drawWaveform() {
+  const canvas = document.getElementById("waveform");
+  const ctx = canvas.getContext("2d");
+  const W = canvas.width = canvas.offsetWidth * devicePixelRatio;
+  const H = canvas.height = canvas.offsetHeight * devicePixelRatio;
+  const data = new Uint8Array(analyser ? analyser.frequencyBinCount : 128);
+
+  function frame() {
+    animId = requestAnimationFrame(frame);
+    if (analyser) analyser.getByteTimeDomainData(data);
+    ctx.clearRect(0, 0, W, H);
+    ctx.beginPath();
+    ctx.strokeStyle = isPaused ? "#4b4860" : "#7c6cfc";
+    ctx.lineWidth = 2 * devicePixelRatio;
+    ctx.shadowColor = "#7c6cfc";
+    ctx.shadowBlur = isPaused ? 0 : 12;
+    const slice = W / data.length;
+    let x = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = data[i] / 128;
+      const y = (v * H) / 2;
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      x += slice;
+    }
+    ctx.stroke();
+  }
+  frame();
+}
+
+// ─── GUEST: AUDIO PLAYBACK ───────────────────────────────────────────────────
+function initGuestAudio() {
+  if (guestAudioCtx) return;
+  guestAudioCtx = new AudioContext({ sampleRate: 44100 });
+  guestGain = guestAudioCtx.createGain();
+  guestGain.connect(guestAudioCtx.destination);
+  guestStartTime = guestAudioCtx.currentTime + 0.05; // small initial buffer
+}
+
+function handleGuestAudioChunk(buffer) {
+  initGuestAudio();
+  if (guestAudioCtx.state === "suspended") guestAudioCtx.resume();
+
+  const floats = new Float32Array(buffer);
+  const frameCount = floats.length / 2;
+  const audioBuf = guestAudioCtx.createBuffer(2, frameCount, 44100);
+  const L = audioBuf.getChannelData(0);
+  const R = audioBuf.getChannelData(1);
+  for (let i = 0; i < frameCount; i++) { L[i] = floats[i * 2]; R[i] = floats[i * 2 + 1]; }
+
+  const src = guestAudioCtx.createBufferSource();
+  src.buffer = audioBuf;
+  src.connect(guestGain);
+
+  const now = guestAudioCtx.currentTime;
+  if (guestStartTime < now) guestStartTime = now + 0.05;
+  src.start(guestStartTime);
+  guestStartTime += audioBuf.duration;
+
+  // Update UI
+  setGuestStatus("Receiving audio…", "live");
+  document.getElementById("audio-indicator").classList.add("playing");
+}
+
+function setGuestStatus(text, state) {
+  document.getElementById("guest-status-text").textContent = text;
+  const dot = document.getElementById("guest-status-dot");
+  dot.className = "status-dot " + state;
+}
+
+// ─── RESET ───────────────────────────────────────────────────────────────────
+function resetToLobby() {
+  stopStream(false);
+  if (ws) { ws.close(); ws = null; }
+  if (guestAudioCtx) { guestAudioCtx.close(); guestAudioCtx = null; guestGain = null; }
+  guestStartTime = 0;
+  role = null; roomCode = null; isPaused = false;
+  document.getElementById("join-code").value = "";
+  updateGuestCount(0);
+  document.getElementById("audio-indicator").classList.remove("playing");
+  showPage("page-lobby");
+}
+
+// ─── EVENT LISTENERS ─────────────────────────────────────────────────────────
+document.getElementById("btn-create").addEventListener("click", () => {
+  connectWS(() => send({ type: "create" }));
+});
+
+document.getElementById("btn-join").addEventListener("click", () => {
+  const code = document.getElementById("join-code").value.trim().toUpperCase();
+  if (code.length !== 6) { showToast("Enter the 6-character room code."); return; }
+  connectWS(() => send({ type: "join", code }));
+});
+
+document.getElementById("join-code").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") document.getElementById("btn-join").click();
+});
+
+document.getElementById("host-code").addEventListener("click", () => {
+  navigator.clipboard.writeText(roomCode).then(() => showToast("Code copied!"));
+});
+
+document.getElementById("btn-start-stream").addEventListener("click", startStream);
+
+document.getElementById("btn-pause-stream").addEventListener("click", togglePause);
+
+document.getElementById("btn-stop-stream").addEventListener("click", () => stopStream(true));
+
+document.getElementById("btn-close-room").addEventListener("click", () => {
+  if (confirm("Close the room? Everyone will be disconnected.")) resetToLobby();
+});
+
+document.getElementById("btn-leave-room").addEventListener("click", () => resetToLobby());
+
+document.getElementById("guest-volume").addEventListener("input", (e) => {
+  const v = parseFloat(e.target.value);
+  document.getElementById("vol-label").textContent = Math.round(v * 100) + "%";
+  if (guestGain) guestGain.gain.value = v;
+});
+
+// Resize waveform on window resize
+window.addEventListener("resize", () => {
+  if (analyser) drawWaveform();
+});
+</script>
+</body>
+</html>
