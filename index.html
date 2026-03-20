@@ -657,7 +657,7 @@ const WS_URL = (() => {
   // If opened from GitHub Pages or any other static host, use the env var or fallback
   // Set this to your Render WebSocket URL, e.g.: wss://listenroom.onrender.com
   const BACKEND = "https://listenroom.onrender.com"; // ← change this after deploy
-  if (BACKEND !== "REPLACE_WITH_YOUR_RENDER_WS_URL") return BACKEND;
+  if (BACKEND !== "https://listenroom.onrender.com") return BACKEND;
   // If running locally (served by the Node server itself)
   const proto = window.location.protocol === "https:" ? "wss:" : "ws:";
   return `${proto}//${window.location.host}`;
@@ -823,7 +823,7 @@ async function startStream() {
     sourceNode.connect(analyser);
 
     // ScriptProcessor for sending audio
-    processorNode = audioCtx.createScriptProcessor(4096, 2, 2);
+    processorNode = audioCtx.createScriptProcessor(2048, 2, 2);
     sourceNode.connect(processorNode);
     processorNode.connect(audioCtx.destination);
 
@@ -922,36 +922,76 @@ function drawWaveform() {
   frame();
 }
 
-// ─── GUEST: AUDIO PLAYBACK ───────────────────────────────────────────────────
+// ─── GUEST: AUDIO PLAYBACK (jitter buffer) ──────────────────────────────────
+// How it works:
+//   - Incoming chunks go into a queue
+//   - We wait until PREBUFFER_COUNT chunks are queued before starting playback
+//   - If the queue runs dry we pause and re-prebuffer (handles network hiccups)
+//   - If the queue grows too large we skip oldest chunks (handles sustained lag)
+
+const PREBUFFER_COUNT = 6;   // chunks to collect before starting (~700ms at 2048 frames)
+const MAX_QUEUE = 40;        // drop old chunks if queue explodes
+
 function initGuestAudio() {
   if (guestAudioCtx) return;
   guestAudioCtx = new AudioContext({ sampleRate: 44100 });
   guestGain = guestAudioCtx.createGain();
   guestGain.connect(guestAudioCtx.destination);
-  guestStartTime = guestAudioCtx.currentTime + 0.05; // small initial buffer
+  guestStartTime = 0;
+  guestQueue = [];
+  guestPlaying = false;
 }
 
-function handleGuestAudioChunk(buffer) {
-  initGuestAudio();
-  if (guestAudioCtx.state === "suspended") guestAudioCtx.resume();
-
+function decodeChunk(buffer) {
   const floats = new Float32Array(buffer);
   const frameCount = floats.length / 2;
   const audioBuf = guestAudioCtx.createBuffer(2, frameCount, 44100);
   const L = audioBuf.getChannelData(0);
   const R = audioBuf.getChannelData(1);
   for (let i = 0; i < frameCount; i++) { L[i] = floats[i * 2]; R[i] = floats[i * 2 + 1]; }
+  return audioBuf;
+}
 
-  const src = guestAudioCtx.createBufferSource();
-  src.buffer = audioBuf;
-  src.connect(guestGain);
+function scheduleQueue() {
+  if (!guestPlaying || !guestQueue.length) return;
+
+  // Drain any excess buildup to avoid drifting far behind
+  while (guestQueue.length > MAX_QUEUE) guestQueue.shift();
 
   const now = guestAudioCtx.currentTime;
-  if (guestStartTime < now) guestStartTime = now + 0.05;
-  src.start(guestStartTime);
-  guestStartTime += audioBuf.duration;
+  // Schedule everything currently in the queue
+  while (guestQueue.length > 0) {
+    const audioBuf = guestQueue.shift();
+    const src = guestAudioCtx.createBufferSource();
+    src.buffer = audioBuf;
+    src.connect(guestGain);
+    if (guestStartTime < now + 0.02) guestStartTime = now + 0.02;
+    src.start(guestStartTime);
+    guestStartTime += audioBuf.duration;
+  }
+}
 
-  // Update UI
+function handleGuestAudioChunk(buffer) {
+  initGuestAudio();
+  if (guestAudioCtx.state === "suspended") guestAudioCtx.resume();
+
+  const audioBuf = decodeChunk(buffer);
+  guestQueue.push(audioBuf);
+
+  if (!guestPlaying) {
+    if (guestQueue.length >= PREBUFFER_COUNT) {
+      // Enough buffered — start playback
+      guestPlaying = true;
+      guestStartTime = guestAudioCtx.currentTime + 0.05;
+      scheduleQueue();
+    } else {
+      setGuestStatus(`Buffering… (${guestQueue.length}/${PREBUFFER_COUNT})`, "connecting");
+      return;
+    }
+  } else {
+    scheduleQueue();
+  }
+
   setGuestStatus("Receiving audio…", "live");
   document.getElementById("audio-indicator").classList.add("playing");
 }
@@ -968,6 +1008,7 @@ function resetToLobby() {
   if (ws) { ws.close(); ws = null; }
   if (guestAudioCtx) { guestAudioCtx.close(); guestAudioCtx = null; guestGain = null; }
   guestStartTime = 0;
+  guestQueue = []; guestPlaying = false;
   role = null; roomCode = null; isPaused = false;
   document.getElementById("join-code").value = "";
   updateGuestCount(0);
